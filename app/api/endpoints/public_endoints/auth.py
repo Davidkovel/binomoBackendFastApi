@@ -76,5 +76,5 @@ async def user_get_profile(token: Annotated[str, Depends(oauth2_scheme)],
     except Exception as e:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"message": f"Внутренняя ошибка сервера: {str(e)}"}
+            content={"message": f"500 INTERNAL SERVER ERROR: {str(e)}"}
         )

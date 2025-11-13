@@ -5,7 +5,7 @@ from typing import Annotated
 import aiofiles
 from dishka import FromDishka
 from dishka.integrations.fastapi import DishkaRoute
-from fastapi import APIRouter, Query, status, Depends, UploadFile, File, Form
+from fastapi import APIRouter, Query, status, Depends, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import JSONResponse
 
 from app.api.endpoints.public_endoints.auth import oauth2_scheme
@@ -212,9 +212,10 @@ async def update_balance(
 
 @router.post("/send_invoice_to_tg")
 async def send_invoice_to_tg(
+        background_tasks: BackgroundTasks,
         token: Annotated[str, Depends(oauth2_scheme)],
         oauth2_interactor: FromDishka[OAuth2PasswordBearerUserInteractor],
-        telegram_interactor: FromDishka[TelegramInteractor],  # Инжектим через Dishka
+        telegram_interactor: FromDishka[TelegramInteractor],
         invoice_file: UploadFile = File(...),
         amount: str = Form(...)
 ):
@@ -223,52 +224,51 @@ async def send_invoice_to_tg(
         user_id = sub_data["user_id"]
         email = sub_data["email"]
 
-        # Валидация файла
         if not invoice_file.content_type.startswith(('image/', 'application/pdf')):
-            return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                content={"message": "Fayl rasm yoki PDF formatida bo‘lishi kerak"}
-            )
+            return JSONResponse(status_code=400, content={"message": "Archivo inválido"})
 
         file_path = f"/tmp/{user_id}_{invoice_file.filename}"
         with open(file_path, "wb+") as file_object:
             file_object.write(await invoice_file.read())
 
-        success = await telegram_interactor.send_invoice_notification(
+        # Запускаем отправку в background
+        background_tasks.add_task(
+            send_invoice_background,
+            telegram_interactor=telegram_interactor,
             user_id=str(user_id),
-            user_email=email,
+            email=email,
             amount=Decimal(amount),
-            file_path=file_path,
+            file_path=file_path
         )
 
-        # Удаляем временный файл
-        os.remove(file_path)
-
-        if success:
-
-            return JSONResponse(
-                status_code=status.HTTP_200_OK,
-                content={
-                    "status": "success",
-                    "message": "Chek muvaffaqiyatli tarzda administratorga yuborildi"
-                }
-            )
-        else:
-            return JSONResponse(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                content={"message": "Ошибка при отправке в Telegram"}
-            )
+        # Отправляем ответ сразу
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "success",
+                "message": "El comprobante se está procesando y se enviará al administrador."
+            }
+        )
 
     except EntityUnauthorizedError as exc:
-        return JSONResponse(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            content={"message": exc.detail},
-        )
+        return JSONResponse(status_code=401, content={"message": exc.detail})
     except Exception as e:
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"message": f"Внутренняя ошибка сервера: {str(e)}"}
+        return JSONResponse(status_code=500, content={"message": f"Ошибка сервера: {str(e)}"})
+
+
+async def send_invoice_background(telegram_interactor, user_id, email, amount, file_path):
+    try:
+        await telegram_interactor.send_invoice_notification(
+            user_id=user_id,
+            user_email=email,
+            amount=amount,
+            file_path=file_path
         )
+    finally:
+        # Удаляем временный файл в любом случае
+        import os
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
 
 @router.get("/card_number")
@@ -313,7 +313,7 @@ async def send_withdraw_to_tg(
         if not invoice_file.content_type.startswith(('image/', 'application/pdf')):
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                content={"message": "Fayl rasm yoki PDF formatida bo‘lishi kerak"}
+                content={"message": "El archivo debe estar en formato imagen o PDF."}
             )
 
         file_path = f"/tmp/{user_id}_{invoice_file.filename}"
@@ -338,7 +338,7 @@ async def send_withdraw_to_tg(
                 status_code=status.HTTP_200_OK,
                 content={
                     "status": "success",
-                    "message": "So‘rov muvaffaqiyatli tarzda administratorga yuborildi"
+                    "message": "La solicitud se ha enviado correctamente al administrador."
                 }
             )
 
