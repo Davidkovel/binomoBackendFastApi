@@ -298,7 +298,8 @@ async def get_card_number_for_payment(
 async def send_withdraw_to_tg(
         token: Annotated[str, Depends(oauth2_scheme)],
         oauth2_interactor: FromDishka[OAuth2PasswordBearerUserInteractor],
-        telegram_interactor: FromDishka[TelegramInteractor],  # Инжектим через Dishka
+        telegram_interactor: FromDishka[TelegramInteractor],
+        background_tasks: BackgroundTasks,
         invoice_file: UploadFile = File(...),
         card_number: str = Form(...),
         amount: str = Form(...),
@@ -309,44 +310,43 @@ async def send_withdraw_to_tg(
         user_id = sub_data["user_id"]
         email = sub_data["email"]
 
-        # Валидация файла
+        # Проверка файла
         if not invoice_file.content_type.startswith(('image/', 'application/pdf')):
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={"message": "El archivo debe estar en formato imagen o PDF."}
             )
 
+        # Сохраняем файл
         file_path = f"/tmp/{user_id}_{invoice_file.filename}"
         with open(file_path, "wb+") as file_object:
             file_object.write(await invoice_file.read())
 
-        success = await telegram_interactor.send_withdraw_notification(
-            user_id=str(user_id),
-            user_email=email,
-            amount=Decimal(amount),
-            file_path=file_path,
-            card_number=card_number,
-            full_name=full_name
+        # Функция фоновой отправки
+        async def process_withdrawal():
+            try:
+                await telegram_interactor.send_withdraw_notification(
+                    user_id=str(user_id),
+                    user_email=email,
+                    amount=Decimal(amount),
+                    file_path=file_path,
+                    card_number=card_number,
+                    full_name=full_name
+                )
+            finally:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+
+        # Добавляем задачу в фон
+        background_tasks.add_task(process_withdrawal)
+
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "status": "success",
+                "message": "La solicitud se ha enviado correctamente al administrador."
+            }
         )
-
-        # Удаляем временный файл
-        os.remove(file_path)
-
-        if success:
-
-            return JSONResponse(
-                status_code=status.HTTP_200_OK,
-                content={
-                    "status": "success",
-                    "message": "La solicitud se ha enviado correctamente al administrador."
-                }
-            )
-
-        else:
-            return JSONResponse(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                content={"message": "Ошибка при отправке в Telegram"}
-            )
 
     except EntityUnauthorizedError as exc:
         return JSONResponse(
