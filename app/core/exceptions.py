@@ -7,49 +7,49 @@ from app.schemas.error import ErrorResponse
 
 
 class InvalidRequestDataError(Exception):
-    def __init__(self, detail="Ошибка в данных запроса."):
+    def __init__(self, detail="Error en los datos de la solicitud."):
         self.detail = detail
         super().__init__(self.detail)
 
 
 class InvalidCredentialsError(Exception):
-    def __init__(self, detail="Неверный email или пароль."):
+    def __init__(self, detail="Correo electrónico o contraseña incorrectos."):
         self.detail = detail
         super().__init__(self.detail)
 
 
 class EmailAlreadyExistsError(Exception):
-    def __init__(self, detail="Такой email уже зарегистрирован."):
+    def __init__(self, detail="Este correo electrónico ya está registrado."):
         self.detail = detail
         super().__init__(self.detail)
 
 
 class EntityUnauthorizedError(Exception):
-    def __init__(self, detail="Пользователь не авторизован."):
+    def __init__(self, detail="No hay suficientes fondos"):
         self.detail = detail
         super().__init__(self.detail)
 
 
 class InsufficientBalanceError(Exception):
-    def __init__(self, detail="Не достаточно средств."):
+    def __init__(self, detail="No hay suficientes fondos."):
         self.detail = detail
         super().__init__(self.detail)
 
 
 class EntityNotFoundError(Exception):
-    def __init__(self, detail="Объект не найден"):
+    def __init__(self, detail="No se ha encontrado el objeto."):
         self.detail = detail
         super().__init__(self.detail)
 
 
 class EntityAccessDeniedError(Exception):
-    def __init__(self, detail="Доступ запрещен"):
+    def __init__(self, detail="Acceso prohibido"):
         self.detail = detail
         super().__init__(self.detail)
 
 
 class InsufficientFundsError(Exception):
-    def __init__(self, detail="Не достаточно средств"):
+    def __init__(self, detail="No hay suficientes fondos"):
         self.detail = detail
         super().__init__(self.detail)
 
@@ -60,12 +60,12 @@ async def validation_exception_handler(request: Request, exc: ValidationError):
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={
-                    "message": "Ishonchsiz parol. Kamida 6 ta belgidan iborat bo‘lishi va kamida bitta raqam bo‘lishi kerak. Xavfsiz parol misoli: qwerty1"}
+                    "message": "Contraseña débil. Debe tener al menos 6 caracteres e incluir al menos un número. Ejemplo de contraseña segura: qwerty1"}
             )
     # Для остальных ошибок
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
-        content={"message": "Ошибка в данных запроса."}
+        content={"message": "Bad request 400"}
     )
 
 

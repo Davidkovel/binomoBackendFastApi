@@ -70,7 +70,7 @@ class TelegramInteractor:
                 _, _, user_id, amount_str = callback.data.split("_", 3)
                 amount = Decimal(amount_str)
 
-                new_caption = f"❌ Запрос на вывод *{amount:,.2f} UZS* пользователю `{user_id}` отклонен."
+                new_caption = f"❌ Запрос на вывод *{amount:,.2f} USD* пользователю `{user_id}` отклонен."
                 await callback.message.edit_caption(
                     caption=new_caption,
                     reply_markup=None  # Убираем кнопки
@@ -102,7 +102,7 @@ class TelegramInteractor:
                     await money_interactor.set_initial_balance(user_id, amount)
 
                 # Редактируем caption сообщения с фото
-                new_caption = f"✅ Баланс пользователя {user_id} обновлен на {amount:,} UZS"
+                new_caption = f"✅ Баланс пользователя {user_id} обновлен на {amount:,} USD"
 
                 # Способ 1: Редактируем только подпись
                 await callback.message.edit_caption(
@@ -187,7 +187,7 @@ class TelegramInteractor:
             amount: Decimal,
             file_path: str,
     ):
-        formatted_amount = f"{amount:,.2f} UZS"
+        formatted_amount = f"{amount:,.2f} USD"
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [
@@ -242,7 +242,7 @@ class TelegramInteractor:
     ) -> bool:
         """Отправка уведомления о запросе на вывод средств"""
 
-        formatted_amount = f"{amount:,.2f} UZS"
+        formatted_amount = f"{amount:,.2f} USD"
 
         # keyboard = InlineKeyboardMarkup(
         #     inline_keyboard=[
