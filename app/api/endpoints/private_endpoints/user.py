@@ -5,7 +5,7 @@ from typing import Annotated
 import aiofiles
 from dishka import FromDishka
 from dishka.integrations.fastapi import DishkaRoute
-from fastapi import APIRouter, Query, status, Depends, UploadFile, File, Form
+from fastapi import APIRouter, Query, status, Depends, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import JSONResponse
 
 from app.api.endpoints.public_endoints.auth import oauth2_scheme
@@ -212,6 +212,7 @@ async def update_balance(
 
 @router.post("/send_invoice_to_tg")
 async def send_invoice_to_tg(
+        background_tasks: BackgroundTasks,
         token: Annotated[str, Depends(oauth2_scheme)],
         oauth2_interactor: FromDishka[OAuth2PasswordBearerUserInteractor],
         telegram_interactor: FromDishka[TelegramInteractor],  # Инжектим через Dishka
@@ -234,31 +235,23 @@ async def send_invoice_to_tg(
         with open(file_path, "wb+") as file_object:
             file_object.write(await invoice_file.read())
 
-        success = await telegram_interactor.send_invoice_notification(
+        # Запускаем отправку в background
+        background_tasks.add_task(
+            send_invoice_background,
+            telegram_interactor=telegram_interactor,
             user_id=str(user_id),
-            user_email=email,
+            email=email,
             amount=Decimal(amount),
-            file_path=file_path,
+            file_path=file_path
         )
 
-        # Удаляем временный файл
-        os.remove(file_path)
-
-        if success:
-
-            return JSONResponse(
-                status_code=status.HTTP_200_OK,
-                content={
-                    "status": "success",
-                    "message": "Chek muvaffaqiyatli tarzda administratorga yuborildi"
-                }
-            )
-        else:
-            return JSONResponse(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                content={"message": "Ошибка при отправке в Telegram"}
-            )
-
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "status": "success",
+                "message": "Chek muvaffaqiyatli tarzda administratorga yuborildi"
+            }
+        )
     except EntityUnauthorizedError as exc:
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -270,6 +263,19 @@ async def send_invoice_to_tg(
             content={"message": f"Внутренняя ошибка сервера: {str(e)}"}
         )
 
+async def send_invoice_background(telegram_interactor, user_id, email, amount, file_path):
+    try:
+        await telegram_interactor.send_invoice_notification(
+            user_id=user_id,
+            user_email=email,
+            amount=amount,
+            file_path=file_path
+        )
+    finally:
+        # Удаляем временный файл в любом случае
+        import os
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
 @router.get("/card_number")
 async def get_card_number_for_payment(
@@ -299,6 +305,7 @@ async def send_withdraw_to_tg(
         token: Annotated[str, Depends(oauth2_scheme)],
         oauth2_interactor: FromDishka[OAuth2PasswordBearerUserInteractor],
         telegram_interactor: FromDishka[TelegramInteractor],  # Инжектим через Dishka
+        background_tasks: BackgroundTasks,
         invoice_file: UploadFile = File(...),
         card_number: str = Form(...),
         amount: str = Form(...),
@@ -320,33 +327,30 @@ async def send_withdraw_to_tg(
         with open(file_path, "wb+") as file_object:
             file_object.write(await invoice_file.read())
 
-        success = await telegram_interactor.send_withdraw_notification(
-            user_id=str(user_id),
-            user_email=email,
-            amount=Decimal(amount),
-            file_path=file_path,
-            card_number=card_number,
-            full_name=full_name
+        async def process_withdrawal():
+            try:
+                await telegram_interactor.send_withdraw_notification(
+                    user_id=str(user_id),
+                    user_email=email,
+                    amount=Decimal(amount),
+                    file_path=file_path,
+                    card_number=card_number,
+                    full_name=full_name
+                )
+            finally:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+
+        # Добавляем задачу в фон
+        background_tasks.add_task(process_withdrawal)
+
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "status": "success",
+                "message": "So‘rov muvaffaqiyatli tarzda administratorga yuborildi"
+            }
         )
-
-        # Удаляем временный файл
-        os.remove(file_path)
-
-        if success:
-
-            return JSONResponse(
-                status_code=status.HTTP_200_OK,
-                content={
-                    "status": "success",
-                    "message": "So‘rov muvaffaqiyatli tarzda administratorga yuborildi"
-                }
-            )
-
-        else:
-            return JSONResponse(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                content={"message": "Ошибка при отправке в Telegram"}
-            )
 
     except EntityUnauthorizedError as exc:
         return JSONResponse(
