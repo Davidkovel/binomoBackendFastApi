@@ -7,31 +7,31 @@ from app.schemas.error import ErrorResponse
 
 
 class InvalidRequestDataError(Exception):
-    def __init__(self, detail="Error en los datos de la solicitud."):
+    def __init__(self, detail="Ilova ma'lumotlarida xato."):
         self.detail = detail
         super().__init__(self.detail)
 
 
 class InvalidCredentialsError(Exception):
-    def __init__(self, detail="Correo electrónico o contraseña incorrectos."):
+    def __init__(self, detail="Noto'g'ri elektron pochta manzili yoki parol."):
         self.detail = detail
         super().__init__(self.detail)
 
 
 class EmailAlreadyExistsError(Exception):
-    def __init__(self, detail="Este correo electrónico ya está registrado."):
+    def __init__(self, detail="Ushbu elektron pochta manzili allaqachon ro'yxatdan o'tkazilgan."):
         self.detail = detail
         super().__init__(self.detail)
 
 
 class EntityUnauthorizedError(Exception):
-    def __init__(self, detail="No hay suficientes fondos"):
+    def __init__(self, detail="Mablag' yetarli emas."):
         self.detail = detail
         super().__init__(self.detail)
 
 
 class InsufficientBalanceError(Exception):
-    def __init__(self, detail="No hay suficientes fondos."):
+    def __init__(self, detail="Mablag' yetarli emas."):
         self.detail = detail
         super().__init__(self.detail)
 
@@ -43,13 +43,13 @@ class EntityNotFoundError(Exception):
 
 
 class EntityAccessDeniedError(Exception):
-    def __init__(self, detail="Acceso prohibido"):
+    def __init__(self, detail="Kirish taqiqlangan"):
         self.detail = detail
         super().__init__(self.detail)
 
 
 class InsufficientFundsError(Exception):
-    def __init__(self, detail="No hay suficientes fondos"):
+    def __init__(self, detail="Mablag' yetarli emas."):
         self.detail = detail
         super().__init__(self.detail)
 
@@ -60,7 +60,7 @@ async def validation_exception_handler(request: Request, exc: ValidationError):
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={
-                    "message": "Contraseña débil. Debe tener al menos 6 caracteres e incluir al menos un número. Ejemplo de contraseña segura: qwerty1"}
+                    "message": "Zaif parol. U kamida 6 belgidan iborat bo'lishi va kamida bitta raqamni o'z ichiga olishi kerak. Xavfsiz parol misoli: qwerty1"}
             )
     # Для остальных ошибок
     return JSONResponse(
