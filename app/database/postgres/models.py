@@ -50,3 +50,4 @@ class BankCardModel(Base):
     )
     card_number = Column(String(100), default="1111 2222 3333 4444", nullable=False)
     card_holder_name = Column(String(100), )
+    bank = Column(String(100), )

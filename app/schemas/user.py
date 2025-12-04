@@ -82,6 +82,7 @@ class BankCardResponse(BaseModel):
 class BankCardAndHolderResponse(BaseModel):
     card_number: str
     card_holder_name: str
+    bank: str
 
 
 class UpdateBalanceMultiplyRequest(BaseModel):

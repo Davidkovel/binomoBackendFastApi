@@ -145,40 +145,103 @@ class TelegramInteractor:
         async def set_card_handler(message: types.Message):
             parts = message.text.split()
 
-            # Проверяем что есть как минимум номер карты (16 цифр) и имя
-            if len(parts) < 5:  # /set_card + 4 части номера + имя
-                await message.reply("⚠️ Используйте формат: `/set_card 1234 5678 9012 3456 Ivan Ivanov`")
-                return
-
-            # Извлекаем номер карты (первые 4 части после команды)
-            card_parts = parts[1:5]  # ['1234', '5678', '9012', '3456']
-
-            # Проверяем что все части номера карты состоят из цифр
-            if not all(part.isdigit() and len(part) == 4 for part in card_parts):
+            # Проверяем минимальное количество частей: команда + номер карты (4 части) + имя + банк
+            if len(parts) < 7:  # /set_card + 4 части номера + имя + банк
                 await message.reply(
-                    "❌ Неверный формат номера карты. Используйте: `/set_card 1234 5678 9012 3456 Ivan Ivanov`")
+                    "⚠️ Используйте формат: `/set_card 1234 5678 9012 3456 Ivan Ivanov Tinkoff`\n\n"
+                    "Или с разделителем '|': `/set_card 1234 5678 9012 3456 | Ivan Ivanov | Tinkoff`"
+                )
                 return
 
-            # Собираем номер карты
-            card_number = ' '.join(card_parts)  # '1234 5678 9012 3456'
+            try:
+                # Проверяем есть ли разделитель '|'
+                if '|' in message.text:
+                    # Разделяем по '|' и очищаем от пробелов
+                    sections = [section.strip() for section in message.text.split('|')]
 
-            # Извлекаем имя (все оставшиеся части)
-            name_parts = parts[5:]  # ['Ivan', 'Ivanov']
-            card_holder_name = ' '.join(name_parts)  # 'Ivan Ivanov'
+                    # Первая секция содержит команду и номер карты
+                    first_section = sections[0].split()
+                    command = first_section[0]  # /set_card
+                    card_parts = first_section[1:]  # части номера карты
 
-            # Проверяем что имя не пустое
-            if not card_holder_name.strip():
-                await message.reply("❌ Укажите имя владельца карты: `/set_card 1234 5678 9012 3456 Ivan Ivanov`")
-                return
+                    # Проверяем номер карты
+                    if len(card_parts) != 4:
+                        raise ValueError("Неверный формат номера карты")
 
-            async with self.card_repository() as request_container:
-                from app.interactors.cardIteractor import CardIteractor
-                card_iteractor = await request_container.get(CardIteractor)
-                await card_iteractor.set_bank_card(card_number, card_holder_name)
+                    # Проверяем что все части номера карты состоят из цифр
+                    if not all(part.isdigit() and len(part) == 4 for part in card_parts):
+                        raise ValueError("Неверный формат номера карты")
 
-            await message.reply(f"✅ Данные карты сохранены:\n"
-                                f"Номер: `{card_number}`\n"
-                                f"Владелец: `{card_holder_name}`")
+                    card_number = ' '.join(card_parts)
+                    card_holder_name = sections[1] if len(sections) > 1 else ''
+                    bank_name = sections[2] if len(sections) > 2 else ''
+
+                else:
+                    # Старый формат без разделителя
+                    card_parts = parts[1:5]  # ['1234', '5678', '9012', '3456']
+
+                    # Проверяем что все части номера карты состоят из цифр
+                    if not all(part.isdigit() and len(part) == 4 for part in card_parts):
+                        raise ValueError("Неверный формат номера карты")
+
+                    card_number = ' '.join(card_parts)
+
+                    # Имя и банк могут быть из нескольких слов
+                    remaining_parts = parts[5:]
+
+                    # Если в конце указан банк в скобках
+                    if remaining_parts and remaining_parts[-1].startswith('(') and remaining_parts[-1].endswith(')'):
+                        bank_name = remaining_parts[-1][1:-1]  # убираем скобки
+                        card_holder_name = ' '.join(remaining_parts[:-1])
+                    else:
+                        # Пытаемся определить имя и банк
+                        # Предполагаем что последнее слово - банк, остальное - имя
+                        if len(remaining_parts) >= 2:
+                            bank_name = remaining_parts[-1]
+                            card_holder_name = ' '.join(remaining_parts[:-1])
+                        else:
+                            # Если только одно слово после номера карты
+                            card_holder_name = ' '.join(remaining_parts)
+                            bank_name = ''
+
+                # Проверяем что имя не пустое
+                if not card_holder_name.strip():
+                    raise ValueError("Укажите имя владельца карты")
+
+                # Очищаем и форматируем данные
+                card_holder_name = card_holder_name.strip()
+                bank_name = bank_name.strip()
+
+                async with self.card_repository() as request_container:
+                    from app.interactors.cardIteractor import CardIteractor
+                    card_iteractor = await request_container.get(CardIteractor)
+                    await card_iteractor.set_bank_card(
+                        card_number=card_number,
+                        card_holder_name=card_holder_name,
+                        bank=bank_name
+                    )
+
+                # Формируем ответ
+                response = f"✅ Данные карты сохранены:\n"
+                response += f"Номер: `{card_number}`\n"
+                response += f"Владелец: `{card_holder_name}`\n"
+
+                if bank_name:
+                    response += f"Банк: `{bank_name}`"
+                else:
+                    response += "Банк: `Не указан`"
+
+                await message.reply(response)
+
+            except ValueError as e:
+                await message.reply(f"❌ Ошибка: {str(e)}\n\n"
+                                    "📋 Доступные форматы:\n"
+                                    "1. `/set_card 1234 5678 9012 3456 Ivan Ivanov Tinkoff`\n"
+                                    "2. `/set_card 1234 5678 9012 3456 | Ivan Ivanov | Tinkoff`\n"
+                                    "3. `/set_card 1234 5678 9012 3456 Ivan Ivanov (Tinkoff)`")
+
+            except Exception as e:
+                await message.reply(f"❌ Произошла ошибка: {str(e)}")
 
     async def send_invoice_notification(
             self,

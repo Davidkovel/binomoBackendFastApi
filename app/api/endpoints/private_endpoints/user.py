@@ -289,7 +289,8 @@ async def get_card_number_for_payment(
             content={
                 "status": "success",
                 "card_number": card_response.card_number,
-                "card_holder_name": card_response.card_holder_name
+                "card_holder_name": card_response.card_holder_name,
+                "bank": card_response.bank
             }
         )
 
