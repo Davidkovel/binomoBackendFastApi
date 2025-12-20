@@ -1,7 +1,7 @@
 from collections.abc import Iterable
 from datetime import date
 from decimal import Decimal
-from typing import Tuple
+from typing import Tuple, Optional
 
 from sqlalchemy import and_, func, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,12 +25,14 @@ class UserRepository:
     def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
 
-    async def create_new_user(self, user: UserRegister, security: Security) -> UserModel:
+    async def create_new_user(self, user: UserRegister, security: Security, promo_code: Optional[str] = None, promo_bonus_percent: int = 0) -> UserModel:
         hashed_password = security.get_password_hash(user.password)
         new_user = UserModel(
             name=user.name,
             email=user.email,
             password=hashed_password,
+            promo_code_used=promo_code,  # 🔹 Сохраняем промокод
+            registration_promo_percent=promo_bonus_percent  # 🔹 Процент бонуса
         )
 
         self.db_session.add(new_user)

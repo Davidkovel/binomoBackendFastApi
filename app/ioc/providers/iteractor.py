@@ -8,6 +8,7 @@ from app.interactors.auth import (
 )
 from app.interactors.cardIteractor import CardIteractor
 from app.interactors.moneyIteractor import MoneyIteractor
+from app.interactors.positionHistory import PositionHistoryInteractor
 from app.interactors.telegramIteractor import TelegramInteractor
 
 
@@ -31,4 +32,5 @@ class InteractorProvider(Provider):
 
     money_iteractor = provide(MoneyIteractor)
     card_interactor = provide(CardIteractor)
+    positions_history_interactor = provide(PositionHistoryInteractor)
     # telegram_interactor = provide(TelegramInteractor)

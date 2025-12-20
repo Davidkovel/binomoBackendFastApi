@@ -8,9 +8,11 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: binomo
     ports:
-      - "5432:5432"
+      - "5434:5432"  # хостовый порт изменен, чтобы избежать конфликта с binomo2
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - binomo_network
 
   backend:
     build: .
@@ -20,6 +22,14 @@ services:
       - "8080:8080"
     depends_on:
       - postgres
+    networks:
+      - binomo_network
 
 volumes:
   postgres_data:
+
+networks:
+  binomo_network:
+    driver: bridge
+
+
