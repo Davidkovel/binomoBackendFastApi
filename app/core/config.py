@@ -61,7 +61,7 @@ class SecurityConfig:
     def from_env() -> "SecurityConfig":
         secret = getenv("RANDOM_SECRET")
         algorithm = getenv("ALGORITH", "HS256")
-        expire_minutes = getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 3060)
+        expire_minutes = getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 10080)
 
         return SecurityConfig(RANDOM_SECRET=secret, ALGORITH=algorithm, ACCESS_TOKEN_EXPIRE_MINUTES=expire_minutes)
 

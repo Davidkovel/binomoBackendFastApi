@@ -6,7 +6,7 @@ from fastapi import APIRouter, Response, status, Body, Depends
 from fastapi.responses import JSONResponse
 from fastapi.security.oauth2 import OAuth2PasswordBearer
 
-from app.core.exceptions import EmailAlreadyExistsError, InvalidCredentialsError
+from app.core.exceptions import EmailAlreadyExistsError, InvalidCredentialsError, EntityUnauthorizedError
 from app.interactors.auth import (
     SignInUserInteractor,
     SignUpUserInteractor, OAuth2PasswordBearerUserInteractor
@@ -97,6 +97,11 @@ async def user_get_profile(token: Annotated[str, Depends(oauth2_scheme)],
                 "user_id": user_id,
                 "email": user_email
             }
+        )
+    except EntityUnauthorizedError as exc:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content=ErrorResponse(message=exc.detail).dict(),
         )
     except Exception as e:
         return JSONResponse(
